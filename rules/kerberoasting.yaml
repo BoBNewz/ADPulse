@@ -1,0 +1,52 @@
+id: "kerberoasting"
+name: "Kerberoasting"
+description: "Detection of Kerberoasting via correlation 4768 -> 4769 and associated criteria."
+
+# Display results on event 4769 (service ticket request)
+event_id: 4769
+
+# Mapping of canonical fields
+field_map:
+  timestamp: "TimeCreated"
+  ip: "IpAddress"
+  # The "user" field can vary depending on the EVTX (fallback in order)
+  user: ["AccountName", "TargetUserName", "SubjectUserName"]
+  service: "ServiceName"
+  ticket_encryption_type: "TicketEncryptionType"
+  keywords: "Keywords"
+
+# 1- Event ID 4768 with encryption type 0x17 (in a short window before 4769)
+checks:
+  - field: ticket_encryption_type
+    value: 0x17
+
+  # 2- 4769 is immediately preceded by 4768 and both have encryption 0x17
+  - type: preceded_by
+    previous_event_id: 4768
+    within_seconds: 5
+    join_by: [user, ip]
+    previous_checks:
+      - field: ticket_encryption_type
+        value: 0x17
+    current_checks:
+      - field: ticket_encryption_type
+        value: 0x17
+
+  # 3- The account is a user domain (not a machine / service account with $)
+  - type: not_contains
+    field: user
+    value: "$"
+
+  # 5- Many service ticket requests in a short period
+  - field: event_time
+    value: 10   # number of events 4769
+    time: 2     # seconds
+    join_by: [user, ip]
+
+# Scoring (5 criteria)
+scoring:
+  1: 30
+  2: 70
+  3: 80
+  4: 95
+

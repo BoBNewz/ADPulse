@@ -1,0 +1,31 @@
+id: "ldap_enum_sharphound"
+name: "LDAP Enumeration / SharpHound"
+description: "Detection of LDAP enumeration via burst of events 4662 over a short period."
+
+event_id: 4662
+
+field_map:
+  timestamp: "TimeCreated"
+  user: ["SubjectUserName", "AccountName", "TargetUserName"]
+  ip: "IpAddress"
+  computer: "Computer"
+
+checks:
+  # 1- Filter event ID 4662 (implicit via event_id)
+
+  # 2- Too many events in a short period => suspicion of LDAP enumeration (ex: SharpHound)
+  - field: event_time
+    value: 20        # number of events
+    time: 2          # seconds
+    join_by: [user]  # group by user (you can add computer/ip if available)
+
+  - field: event_time
+    value: 300        # number of events
+    time: 10          # seconds
+    join_by: [user]  # group by user (you can add computer/ip if available)
+
+
+scoring:
+  1: 50
+  2: 95
+
